@@ -14,9 +14,10 @@ $ make
 Run some of LISP code.
 
 ```
-$ sbcl --load vl53l5cx.lisp
-$ sbcl --load lsm6ds3tr.lisp
 $ sbcl --load fs3000.lisp
+$ sbcl --load lsm6ds3tr.lisp
+$ sbcl --load vl53l5cx.lisp
+$ sbcl --load haptic.lisp
 ```
 
 ## Source Code
