@@ -18,6 +18,7 @@ $ sbcl --load fs3000.lisp
 $ sbcl --load lsm6ds3tr.lisp
 $ sbcl --load vl53l5cx.lisp
 $ sbcl --load haptic.lisp
+$ sbcl --load mpr121.lisp
 ```
 
 ## Source Code
@@ -48,6 +49,12 @@ It could detect distances to targets upto 4000mm.
 
 [Haptic Driver](https://www.sparkfun.com/products/17590) includes Linear Resonant Actuator (LRA) vibrator and motor driver DA7280.
 It could control LRA within a few milliseconds so you can produce arbitrary vibration such as simple vibration or knock like single shot vibrations.
+
+### MPR121 12-Key Capacitive Touch Sensor
+
+[12-Key Touch Sensor](https://www.adafruit.com/product/1982) is capacitive touch sensor module.
+It could get 12-Key touch state via I2C.
+The function `read-mpr121-touch-status` returns each key's touch state as a list of `1` (on) or `0` (off).
 
 
 ## LICENSE
