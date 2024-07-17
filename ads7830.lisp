@@ -31,12 +31,12 @@
     (cffi:foreign-alloc :uint8
                         :initial-contents
                         (loop for x from 0 below 1 collect 0)))
-(defconstant ADS7830-DIFFERENTIAL-INPUTS 1)
+(defconstant ADS7830-DIFFERENTIAL-INPUTS 0)
 (defconstant ADS7830-SINGLE-ENDED-INPUTS 1)
 (defconstant ADS7830-PD-POWER-DOWN 0)
 (defconstant ADS7830-PD-INTERNAL-OFF-AD-ON 1)
-(defconstant ADS7830-PD-INTERNAL-ON-AD-OFF 1)
-(defconstant ADS7830-PD-INTERNAL-ON-AD-ON 1)
+(defconstant ADS7830-PD-INTERNAL-ON-AD-OFF 2)
+(defconstant ADS7830-PD-INTERNAL-ON-AD-ON 3)
 
 (defun read-ads7830 (ch SD PD)
     (setf (cffi:mem-aref *ads7830_wbuffer* :uint8 0)
