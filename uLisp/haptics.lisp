@@ -1,20 +1,21 @@
+(defvar DA7280-ADDR #x4a)
 (defun hap-enable-freqtrack ()
-    (with-i2c (str #x4a)
+    (with-i2c (str DA7280-ADDR)
               (write-byte #x13 str)
               (write-byte #x1e)))
 
 (defun hap-set-idle ()
-    (with-i2c (str #x4a)
+    (with-i2c (str DA7280-ADDR)
               (write-byte #x22 str)
               (write-byte #x00 str)))
 
 (defun hap-set-opmode-dro ()
-    (with-i2c (str #x4a)
+    (with-i2c (str DA7280-ADDR)
               (write-byte #x22 str)
               (write-byte #x01 str)))
 
 (defun hap-set-override-val (x)
-    (with-i2c (str #x4a)
+    (with-i2c (str DA7280-ADDR)
               (write-byte #x23 str)
               (write-byte x str)))
 
