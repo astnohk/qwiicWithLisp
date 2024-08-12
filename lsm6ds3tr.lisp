@@ -15,7 +15,7 @@
 
 
 ;
-; LSM6DS3TR I2C Driver
+; Generic I2C Driver
 ;
 (cffi:load-foreign-library "./i2c_lib.so")
 (cffi:defcfun ("i2c_write" i2c-write) :uint8
