@@ -1,3 +1,7 @@
+;
+; Qwiic Micro OLED (SSD1306)
+;
+
 (require :cffi)
 
 
@@ -5,11 +9,13 @@
 ; CONFIG
 ;;;;;;;;;;;;;;;;
 (defconstant SSD1306_SLAVE_ADDR #x3d)
-(defconstant SSD1306_WIDTH 128)
-(defconstant SSD1306_HEIGHT 64)
+(defconstant SSD1306_WIDTH 64)
+(defconstant SSD1306_HEIGHT 48)
+(defconstant SSD1306_PAGE_SIZE 6)
 (defconstant SSD1306_MEMORY_HORIZONTAL_ADDRESSING #x00)
 (defconstant SSD1306_MEMORY_VERTICAL_ADDRESSING #x01)
 (defconstant SSD1306_MEMORY_PAGE_ADDRESSING #x10)
+(defconstant MICRO_OLED_COLUMN_OFFSET 2)
 ;;;;;;;;;;;;;;;;
 
 ;
@@ -57,11 +63,13 @@
                         :initial-contents
                         (zeros 3)))
 
-(defconstant PIXELBUF_LENGTH (+ 1 (/ (* SSD1306_WIDTH SSD1306_HEIGHT) 8)))
+(defconstant PIXELBUF_LENGTH (+ 1 (* SSD1306_WIDTH (/ SSD1306_HEIGHT 8))))
 (defparameter *pixelbuf*
     (cffi:foreign-alloc :uint8
                         :initial-contents
                         (zeros PIXELBUF_LENGTH)))
+
+(defparameter *pixels* (make-array `(,(floor SSD1306_HEIGHT 8) ,SSD1306_WIDTH) :initial-element 0))
 
 
 ;
@@ -178,12 +186,51 @@
                   (if enable #x04 #x00)))
     (i2c-write *dev* SSD1306_SLAVE_ADDR *wbuf* 3))
 
-(defun write-oled-pixels ()
-    (let ((N (- PIXELBUF_LENGTH 1)))
-        (setf (cffi:mem-aref *pixelbuf* :uint8 0) #x40)
-        (loop for i from 0 below N do
-            (setf (cffi:mem-aref *pixelbuf* :uint8 (+ 1 i)) (if (> (logand #x01 i) 0) #xaa #x00)))
-        (i2c-write *dev* SSD1306_SLAVE_ADDR *pixelbuf* PIXELBUF_LENGTH)))
+(defun write-oled-pixels (page)
+    ; PAGE ADDR
+    (setf (cffi:mem-aref *wbuf* :uint8 0) #x00)
+    (setf (cffi:mem-aref *wbuf* :uint8 1) (logior #xb0 page))
+    (i2c-write *dev* SSD1306_SLAVE_ADDR *wbuf* 2)
+    ; COLUMN OFFSET
+    (let ((x-offset MICRO_OLED_COLUMN_OFFSET)
+          (col-start 0)) ; always send entier segment
+        ; Top
+        (setf (cffi:mem-aref *wbuf* :uint8 0) #x00)
+        (setf (cffi:mem-aref *wbuf* :uint8 1) (logior #x10
+                                                      (+ (ash col-start -4) x-offset)))
+        (i2c-write *dev* SSD1306_SLAVE_ADDR *wbuf* 2)
+        ; Low
+        (setf (cffi:mem-aref *wbuf* :uint8 0) #x00)
+        (setf (cffi:mem-aref *wbuf* :uint8 1) (logand #x0f col-start))
+        (i2c-write *dev* SSD1306_SLAVE_ADDR *wbuf* 2))
+    ; PIXELS
+    (setf (cffi:mem-aref *pixelbuf* :uint8 0) #x40)
+    (loop for i from 0 below SSD1306_WIDTH do
+        (setf (cffi:mem-aref *pixelbuf* :uint8 (+ 1 i)) (aref *pixels* page i)))
+    (i2c-write *dev* SSD1306_SLAVE_ADDR *pixelbuf* (+ 1 SSD1306_WIDTH)))
+
+
+;
+; DRAWING FUNCTIONS
+;
+(defun draw-pixel (x y color)
+    (multiple-value-bind (i bits) (floor y 8)
+        (let* ((bitmask (ash #x01 bits))
+               (v (aref *pixels* i x))
+               (newval (logand #xff
+                               (logior (logand v (lognot bitmask))
+                                       (if (> color 0) bitmask 0)))))
+            (if (and (< x SSD1306_WIDTH)
+                     (< i SSD1306_PAGE_SIZE))
+                (setf (aref *pixels* i x)
+                      newval)
+                (format t "(draw-pixel): out of the bound")))))
+
+(defun draw-slashes ()
+    (loop for i from 0 below SSD1306_HEIGHT do
+        (if (< i SSD1306_WIDTH)
+            (draw-pixel i i 1))))
+
 
 
 ;
@@ -197,12 +244,12 @@
 (set-oled-display-offset 0)
 (set-oled-display-start-line 0)
 (set-oled-charge-pump t)
-(set-oled-memory-addressing-mode SSD1306_MEMORY_HORIZONTAL_ADDRESSING)
+(set-oled-memory-addressing-mode SSD1306_MEMORY_PAGE_ADDRESSING)
 (set-oled-segment-remap t)
 (set-oled-com-scan-direction nil)
 (set-oled-com-pins t nil)
-(set-oled-contrast #x9f)
-(set-oled-pre-charge-period #x22)
+(set-oled-contrast #xcf)
+(set-oled-pre-charge-period #xf1)
 (set-oled-v-comh-deselect-level 4)
 (set-oled-entire-display-on nil)
 (set-oled-inverse-display nil)
@@ -210,8 +257,22 @@
 (set-oled-display-on t)
 (format t "start~%")
 
+(loop for i from 0 below SSD1306_HEIGHT do
+    (loop for j from 0 below SSD1306_WIDTH do
+        (draw-pixel j i 0)))
 ; Drawing loop
-(loop
-    (write-oled-pixels)
-    (sleep 0.5))
+(let ((i 0))
+    (loop
+        ; Clear all pixels
+        (loop for y from 0 below SSD1306_HEIGHT do
+            (loop for x from 0 below SSD1306_WIDTH do
+                (draw-pixel x y 0)))
+        ; Draw a line
+        (draw-slashes)
+        ; Send all pixels data to the device
+        (loop for page from 0 below SSD1306_PAGE_SIZE do
+            (write-oled-pixels page))
+        ; Increment i
+        (setq i (mod (+ i 1) (* SSD1306_WIDTH SSD1306_HEIGHT)))
+        (sleep 0.01)))
 
