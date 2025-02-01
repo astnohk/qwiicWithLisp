@@ -49,7 +49,8 @@
         (cffi:mem-aref *ds3231_rbuffer* :uint8 i)))
 
 (defun ds3231-read-date()
-    (let ((length 7))
+    (let ((length 7)
+          (value ()))
         (setf (cffi:mem-aref *ds3231_wbuffer* :uint8 0)
               0)
         (i2c-read-register
@@ -59,10 +60,27 @@
             1
             *ds3231_rbuffer*
             length)
+        (setf value
+              (loop for x from 0 below length collect
+                  (cffi:mem-aref *ds3231_rbuffer* :uint8 x)))
         (loop for x from 0 below length do
             (format t "~4,'0b ~4,'0b~%"
-                (ash (cffi:mem-aref *ds3231_rbuffer* :uint8 x) -4)
-                (logand #x0f (cffi:mem-aref *ds3231_rbuffer* :uint8 x))))))
+                (ash (nth x value) -4)
+                (logand #x0f (nth x value))))
+        value))
+
+(defun ds3231-parse-value (value)
+    (+ (* 10 (ash value -4))
+       (logand value #x0f)))
+
+(defun ds3231-parse-date (value)
+    (format nil "~d-~2,'0d-~2,'0d ~2,'0d:~2,'0d:~2,'0d"
+            (+ 2000 (ds3231-parse-value (nth 6 value)))
+            (ds3231-parse-value (nth 5 value))
+            (ds3231-parse-value (nth 4 value))
+            (ds3231-parse-value (nth 2 value))
+            (ds3231-parse-value (nth 1 value))
+            (ds3231-parse-value (nth 0 value))))
 
 (defun ds3231-write-date ()
     (let* ((length 7)
