@@ -35,8 +35,9 @@ LISP programs use this simple wrapper to communicate with I2C.
 
 ### AMG8833 Grid-EYE Infrared Array Sensor
 
-[AMG8833 Grid-EYE](https://industrial.panasonic.com/jp/products/pt/grid-eye/models/AMG8833) is infrared array temperature sensor.
+[AMG8833 Grid-EYE](https://www.sparkfun.com/sparkfun-grid-eye-infrared-array-breakout-amg8833-qwiic.html) is infrared array temperature sensor.
 It could measure temperature distant from targets with 8x8 resolution.
+The details of this sensor is available at [Grid-EYE](https://industrial.panasonic.com/jp/products/pt/grid-eye/models/AMG8833).
 
 ### AW9523 LED Driver
 
