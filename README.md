@@ -14,6 +14,7 @@ $ make
 Run some of LISP code.
 
 ```
+$ sbcl --load amg8833.lisp
 $ sbcl --load fs3000.lisp
 $ sbcl --load lsm6ds3tr.lisp
 $ sbcl --load vl53l5cx.lisp
