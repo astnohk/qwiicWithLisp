@@ -155,7 +155,7 @@
         (setf (cffi:mem-aref *wbuffer* :uint8 0)
               REGADDR-EXTENSION)
         (setf (cffi:mem-aref *wbuffer* :uint8 1)
-              (logior oldreg
+              (logior (logand #xEF oldreg)
                       (if enable #x10)))
         (i2c-write
             *dev*
@@ -181,7 +181,7 @@
         (setf (cffi:mem-aref *wbuffer* :uint8 0)
               REGADDR-EXTENSION)
         (setf (cffi:mem-aref *wbuffer* :uint8 1)
-              (logior oldreg
+              (logior (logand #xFC oldreg)
                       (logand #x03 val)))
         (i2c-write
             *dev*
@@ -206,7 +206,7 @@
         (setf (cffi:mem-aref *wbuffer* :uint8 0)
               REGADDR-EXTENSION)
         (setf (cffi:mem-aref *wbuffer* :uint8 1)
-              (logior oldreg
+              (logior (logand #xF3 oldreg)
                       (logand #x0C
                               (ash val 2))))
         (i2c-write
@@ -265,7 +265,7 @@
         (setf (cffi:mem-aref *wbuffer* :uint8 0)
               REGADDR-CONTROL)
         (setf (cffi:mem-aref *wbuffer* :uint8 1)
-              (logior oldreg
+              (logior (logand #xEF oldreg)
                       (if enable #x10)))
         (i2c-write
             *dev*
