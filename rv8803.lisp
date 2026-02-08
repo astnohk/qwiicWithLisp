@@ -69,6 +69,7 @@
         (cffi:foreign-free *dev*))
     (setf *dev*
           (cffi:foreign-string-alloc device-path)))
+
 (defun read-date ()
     (setf (cffi:mem-aref *wbuffer* :uint8 0)
           REGADDR-SECONDS)
