@@ -20,6 +20,7 @@ $ sbcl --load lsm6ds3tr.lisp
 $ sbcl --load vl53l5cx.lisp
 $ sbcl --load haptic.lisp
 $ sbcl --load mpr121.lisp
+$ sbcl --load rv8803.lisp
 ```
 
 ## Source Code
@@ -69,6 +70,16 @@ LIS3MDL is 3-axis magnetometer.
 [12-Key Touch Sensor](https://www.adafruit.com/product/1982) is capacitive touch sensor module.
 It could get 12-Key touch state via I2C.
 The function `read-mpr121-touch-status` returns each key's touch state as a list of `1` (on) or `0` (off).
+
+### RV8803-C RTC
+
+[Real Time Clock Module - RV-8803](https://www.sparkfun.com/sparkfun-real-time-clock-module-rv-8803-qwiic.html) is RTC module.
+It has alarm and countdown interrupt.
+
+```
+* (i2c-rv8803:write-date)
+* (i2c-rv8803:isoformat (i2c-rv8803:read-date))
+```
 
 ### SSD1306 Micro OLED
 
