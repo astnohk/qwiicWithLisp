@@ -1,8 +1,16 @@
 (defpackage :I2C-RV8803
     (:use :cl)
-    (:export :read-date
-             :isoformat
-             :write-date))
+    (:export
+        :read-date
+        :isoformat
+        :write-date
+        :set-timer-counter
+        :set-te
+        :set-td
+        :set-fd
+        :set-tie
+        :clear-flags
+        :read-flags))
 (in-package :I2C-RV8803)
 
 (require :cffi)
@@ -11,6 +19,15 @@
 (defconstant DEVADDR #x32)
 (defconstant REGISTERS_LENGTH 7)
 (defconstant CENTURY 21)
+
+(defconstant REGADDR-SECONDS #x00)
+(defconstant REGADDR-WADA #x0A)
+(defconstant REGADDR-TIMER-COUNTER-0 #x0B)
+(defconstant REGADDR-TIMER-COUNTER-1 #x0C)
+(defconstant REGADDR-EXTENSION #x0D)
+(defconstant REGADDR-FLAG #x0E)
+(defconstant REGADDR-CONTROL #x0F)
+(defconstant REGADDR-OFFSET #x2C)
 
 (cffi:load-foreign-library "./i2c_lib.so")
 
@@ -47,9 +64,14 @@
 ;
 ; low-level functions for RV-8803
 ;
+(defun set-dev (device-path)
+    (if *dev*
+        (cffi:foreign-free *dev*))
+    (setf *dev*
+          (cffi:foreign-string-alloc device-path)))
 (defun read-date ()
     (setf (cffi:mem-aref *wbuffer* :uint8 0)
-          #x00)
+          REGADDR-SECONDS)
     (i2c-read-register
         *dev*
         DEVADDR
@@ -80,7 +102,7 @@
            (month (local-time:timestamp-month now))
            (year (mod (local-time:timestamp-year now) 100)))
         (setf (cffi:mem-aref *wbuffer* :uint8 0)
-              #x00)
+              REGADDR-SECONDS)
         (setf (cffi:mem-aref *wbuffer* :uint8 1)
               second)
         (setf (cffi:mem-aref *wbuffer* :uint8 2)
@@ -100,3 +122,153 @@
             DEVADDR
             *wbuffer*
             (+ 1 REGISTERS_LENGTH))))
+
+(defun set-timer-counter (val)
+    (setf (cffi:mem-aref *wbuffer* :uint8 0)
+          REGADDR-TIMER-COUNTER-0)
+    (setf (cffi:mem-aref *wbuffer* :uint8 1)
+          (logand #xFF val))
+    (setf (cffi:mem-aref *wbuffer* :uint8 2)
+          (logand #x0F
+                  (ash val -8)))
+    (i2c-write
+        *dev*
+        DEVADDR
+        *wbuffer*
+        3))
+
+(defun set-te (enable)
+    (let ((oldreg #x00))
+        ; Read old registers
+        (setf (cffi:mem-aref *wbuffer* :uint8 0)
+              REGADDR-EXTENSION)
+        (i2c-read-register
+            *dev*
+            DEVADDR
+            *wbuffer*
+            1
+            *rbuffer*
+            1)
+        (setf oldreg
+              (cffi:mem-aref *rbuffer* :uint8 0))
+        ; Write
+        (setf (cffi:mem-aref *wbuffer* :uint8 0)
+              REGADDR-EXTENSION)
+        (setf (cffi:mem-aref *wbuffer* :uint8 1)
+              (logior oldreg
+                      (if enable #x10)))
+        (i2c-write
+            *dev*
+            DEVADDR
+            *wbuffer*
+            2)))
+
+(defun set-td (val)
+    (let ((oldreg #x00))
+        ; Read old registers
+        (setf (cffi:mem-aref *wbuffer* :uint8 0)
+              REGADDR-EXTENSION)
+        (i2c-read-register
+            *dev*
+            DEVADDR
+            *wbuffer*
+            1
+            *rbuffer*
+            1)
+        (setf oldreg
+              (cffi:mem-aref *rbuffer* :uint8 0))
+        ; Write
+        (setf (cffi:mem-aref *wbuffer* :uint8 0)
+              REGADDR-EXTENSION)
+        (setf (cffi:mem-aref *wbuffer* :uint8 1)
+              (logior oldreg
+                      (logand #x03 val)))
+        (i2c-write
+            *dev*
+            DEVADDR
+            *wbuffer*
+            2)))
+
+(defun set-fd (val)
+    (let ((oldreg #x00))
+        ; Read old registers
+        (setf (cffi:mem-aref *wbuffer* :uint8 0)
+              REGADDR-EXTENSION)
+        (i2c-read-register
+            *dev*
+            DEVADDR
+            *wbuffer*
+            1
+            *rbuffer*
+            1)
+        (setf oldreg
+              (cffi:mem-aref *rbuffer* :uint8 0))
+        (setf (cffi:mem-aref *wbuffer* :uint8 0)
+              REGADDR-EXTENSION)
+        (setf (cffi:mem-aref *wbuffer* :uint8 1)
+              (logior oldreg
+                      (logand #x0C
+                              (ash val 2))))
+        (i2c-write
+            *dev*
+            DEVADDR
+            *wbuffer*
+            2)))
+
+(defun clear-flags ()
+    (setf (cffi:mem-aref *wbuffer* :uint8 0)
+          REGADDR-FLAG)
+    (setf (cffi:mem-aref *wbuffer* :uint8 1)
+          #x00)
+    (i2c-write
+        *dev*
+        DEVADDR
+        *wbuffer*
+        2))
+
+(defun read-flags ()
+    (let ((reg #x00))
+        ; Read FLAG registers
+        (setf (cffi:mem-aref *wbuffer* :uint8 0)
+              REGADDR-FLAG)
+        (i2c-read-register
+            *dev*
+            DEVADDR
+            *wbuffer*
+            1
+            *rbuffer*
+            1)
+        (setf reg
+              (cffi:mem-aref *rbuffer* :uint8 0))
+        (format t "Voltage Low Flag:              ~d~%" (if (> (logand #x01 reg) 0) 1 0))
+        (format t "Voltage Low Flag:              ~d~%" (if (> (logand #x02 reg) 0) 1 0))
+        (format t "External Event Flag:           ~d~%" (if (> (logand #x04 reg) 0) 1 0))
+        (format t "Alarm Flag:                    ~d~%" (if (> (logand #x08 reg) 0) 1 0))
+        (format t "Periodic Countdown Timer Flag: ~d~%" (if (> (logand #x10 reg) 0) 1 0))
+        (format t "Periodic Time Update Flag:     ~d~%" (if (> (logand #x20 reg) 0) 1 0))))
+
+(defun set-tie (enable)
+    (let ((oldreg #x00))
+        ; Read old registers
+        (setf (cffi:mem-aref *wbuffer* :uint8 0)
+              REGADDR-CONTROL)
+        (i2c-read-register
+            *dev*
+            DEVADDR
+            *wbuffer*
+            1
+            *rbuffer*
+            1)
+        (setf oldreg
+              (cffi:mem-aref *rbuffer* :uint8 0))
+        ; Write
+        (setf (cffi:mem-aref *wbuffer* :uint8 0)
+              REGADDR-CONTROL)
+        (setf (cffi:mem-aref *wbuffer* :uint8 1)
+              (logior oldreg
+                      (if enable #x10)))
+        (i2c-write
+            *dev*
+            DEVADDR
+            *wbuffer*
+            2)))
