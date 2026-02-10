@@ -157,7 +157,7 @@
               REGADDR-EXTENSION)
         (setf (cffi:mem-aref *wbuffer* :uint8 1)
               (logior (logand #xEF oldreg)
-                      (if enable #x10)))
+                      (if enable #x10 #x00)))
         (i2c-write
             *dev*
             DEVADDR
@@ -267,7 +267,7 @@
               REGADDR-CONTROL)
         (setf (cffi:mem-aref *wbuffer* :uint8 1)
               (logior (logand #xEF oldreg)
-                      (if enable #x10)))
+                      (if enable #x10 #x00)))
         (i2c-write
             *dev*
             DEVADDR

@@ -8,6 +8,10 @@
 ; Set periodic countdown timer to
 ; output interrupt on each 30sec.
 
+; Disable interrupt
+(i2c-rv8803:set-tie nil)
+(i2c-rv8803:set-te nil)
+(i2c-rv8803:clear-flags)
 ; Set 1Hz (TD = 0b10).
 (i2c-rv8803:set-td 2)
 ; Set 30sec.
