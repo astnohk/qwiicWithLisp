@@ -15,6 +15,7 @@ Run some of LISP code.
 
 ```
 $ sbcl --load amg8833.lisp
+$ sbcl --load htu21d.lisp
 $ sbcl --load fs3000.lisp
 $ sbcl --load lsm6ds3tr.lisp
 $ sbcl --load vl53l5cx.lisp
@@ -49,6 +50,10 @@ The details of this sensor is available at [Grid-EYE](https://industrial.panason
 
 [DS3231 Precision RTC](https://www.adafruit.com/product/5188) is the high precision RTC.
 This board has CR1220 battery holder for backup power source.
+
+### HTU21D Temperature and Humidity Sensor
+
+[HTU21D-F Temperature & Humidity Sensor Breakout Board](https://www.adafruit.com/product/1899) is an accurate simple humidity and temperature sensor with a PTFE filter which keeps the sensor clean.
 
 ### FS3000
 
