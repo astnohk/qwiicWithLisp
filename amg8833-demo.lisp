@@ -8,6 +8,7 @@
         (format t "~%"))
     (format t "~%"))
 
+(i2c-dev:set-i2c-dev "/dev/i2c-1")
 (i2c-amg8833:reset)
 (sleep 0.25)
 (i2c-amg8833:set-framerate t)
