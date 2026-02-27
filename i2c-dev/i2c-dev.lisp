@@ -57,13 +57,13 @@
     (cffi:with-foreign-objects ((msgs '(:struct i2c-msg) 2)
                                 (packets '(:struct i2c-rdwr-ioctl-data)))
         ; write buf
-        (let ((msg (cffi:mem-aref msgs '(:struct i2c-msg) 0)))
+        (let ((msg (cffi:mem-aptr msgs '(:struct i2c-msg) 0)))
             (setf (cffi:foreign-slot-value msg '(:struct i2c-msg) 'addr) addr
                   (cffi:foreign-slot-value msg '(:struct i2c-msg) 'flags) 0
                   (cffi:foreign-slot-value msg '(:struct i2c-msg) 'buf) write-buf
                   (cffi:foreign-slot-value msg '(:struct i2c-msg) 'len) write-buf-len))
         ; read buf
-        (let ((msg (cffi:mem-aref msgs '(:struct i2c-msg) 1)))
+        (let ((msg (cffi:mem-aptr msgs '(:struct i2c-msg) 1)))
             (setf (cffi:foreign-slot-value msg '(:struct i2c-msg) 'addr) addr
                   (cffi:foreign-slot-value msg '(:struct i2c-msg) 'flags) I2C-M-RD
                   (cffi:foreign-slot-value msg '(:struct i2c-msg) 'buf) read-buf
