@@ -12,6 +12,16 @@
     (setf *dev*
           (cffi:foreign-string-alloc device-path)))
 
+(defun create-i2c-buffer (size)
+    (cffi:foreign-alloc :uint8
+                        :initial-contents (loop for x from 0 below size collect 0)))
+
+(defun free-i2c-buffer (buf)
+    (cffi:foreign-free buf))
+
+(defmacro i2c-buffer-aref (buf index)
+    `(cffi:mem-aref ,buf :uint8 ,index))
+
 (defun i2c-read (addr read-buf read-buf-len)
     (cffi:with-foreign-objects ((msg '(:struct i2c-msg))
                                 (packets '(:struct i2c-rdwr-ioctl-data)))
