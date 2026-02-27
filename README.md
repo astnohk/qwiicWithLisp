@@ -56,7 +56,13 @@ $ sbcl --load rv8803.lisp
 
 It is very simple wrapper for `linux/i2c.h` and `linux/i2c-dev.h`.
 These libraries are available on Linux.
-LISP programs use this simple wrapper to communicate with I2C.
+Some of Common Lisp programs use this simple wrapper to communicate with I2C.
+
+### `i2c-dev Common Lisp wrapper`
+
+It is very simple wrapper for `linux/i2c.h` and `linux/i2c-dev.h`.
+These libraries are available on Linux.
+This is purely written in Common Lisp with CFFI and CFFI-Grovel so you can create some projects with almost pure Common Lisp source code.
 
 ### ADS7830 8ch 8-bit AD Converter
 
