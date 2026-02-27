@@ -1,155 +1,106 @@
-(require :cffi)
+(defpackage :i2c-lsm6ds3tr
+    (:use :cl)
+    (:export
+        :wake-gyro-accel
+        :read-temp-gyro-accel
+        :wake-magnet
+        :read-magnet))
+(in-package :i2c-lsm6ds3tr)
 
-;;;;;;;;;;;;;;;;
-; CONFIG
-;;;;;;;;;;;;;;;;
-(defconstant LSM6DS3TR_SLAVE_ADDR #x6a)
-(defconstant LIS3MDL_SLAVE_ADDR #x1c)
-;;;;;;;;;;;;;;;;
+(require :i2c-dev)
 
-;
-; Generic Functions
-;
-(defun get-elapsed-time () (/ (get-internal-real-time) internal-time-units-per-second))
-(defun length-3d (v) (sqrt (loop for i from 0 below (array-dimension v 0) sum (expt (aref v i) 2))))
-
-
-;
-; Generic I2C Driver
-;
-(cffi:load-foreign-library "./i2c_lib.so")
-(cffi:defcfun ("i2c_write" i2c-write) :uint8
-    (dev (:pointer :char))
-    (addr :uint8)
-    (buf :pointer)
-    (buf_len :size))
-(cffi:defcfun ("i2c_read" i2c-read) :uint8
-    (dev (:pointer :char))
-    (addr :uint8)
-    (read_buf :pointer)
-    (read_buf_len :size))
-(cffi:defcfun ("i2c_read_register" i2c-read-register) :uint8
-    (dev (:pointer :char))
-    (addr :uint8)
-    (write_buf :pointer)
-    (write_buf_len :size)
-    (read_buf :pointer)
-    (read_buf_len :size))
-
+(defconstant LSM6DS3TR_DEVADDR #x6a)
+(defconstant LIS3MDL_DEVADDR #x1c)
 
 ;
 ; Parameters
 ;
-(defparameter *dev*
-    (cffi:foreign-string-alloc "/dev/i2c-1"))
-(defparameter *wbuf*
-    (cffi:foreign-alloc :uint8
-                        :initial-contents
-                        '(0 0)))
-(defparameter *temp-gyro-accel*
-    (cffi:foreign-alloc :int8
-                        :initial-contents
-                        (loop for x from 0 below 14 collect 0)))
-(defparameter *magnet*
-    (cffi:foreign-alloc :int8
-                        :initial-contents
-                        (loop for x from 0 below 6 collect 0)))
-
+(defparameter *wbuf* (i2c-dev:create-i2c-buffer 2))
+(defparameter *temp-gyro-accel* (i2c-dev:create-i2c-buffer 14))
+(defparameter *magnet* (i2c-dev:create-i2c-buffer 6))
 
 ;
 ; Gyro Accelorometer
 ;
 (defun wake-gyro-accel ()
-    (setf (cffi:mem-aref *wbuf* :uint8 0) #x10)
-    (setf (cffi:mem-aref *wbuf* :uint8 1) #x3c)
-    (i2c-write *dev* LSM6DS3TR_SLAVE_ADDR *wbuf* 2)
-    (setf (cffi:mem-aref *wbuf* :uint8 0) #x11)
-    (setf (cffi:mem-aref *wbuf* :uint8 1) #x30)
-    (i2c-write *dev* LSM6DS3TR_SLAVE_ADDR *wbuf* 2))
-
-(defun read-temp-gyro-accel ()
-    (setf (cffi:mem-aref *wbuf* :uint8 0) #x20)
-    (i2c-read-register *dev*
-                       LSM6DS3TR_SLAVE_ADDR
+    (setf (i2c-dev:i2c-buffer-aref *wbuf* 0) #x10)
+    (setf (i2c-dev:i2c-buffer-aref *wbuf* 1) #x3c)
+    (i2c-dev:i2c-write LSM6DS3TR_DEVADDR
                        *wbuf*
-                       1
-                       *temp-gyro-accel*
-                       14))
+                       2)
+    (setf (i2c-dev:i2c-buffer-aref *wbuf* 0) #x11)
+    (setf (i2c-dev:i2c-buffer-aref *wbuf* 1) #x30)
+    (i2c-dev:i2c-write LSM6DS3TR_DEVADDR
+                       *wbuf*
+                       2))
 
 (defun parse-temp-gyro-accel (buf)
     (values
         ; temp
-        (+ (ash (cffi:mem-aref buf :int8 1) 8)
-           (logand #xFF (cffi:mem-aref buf :int8 0)))
+        (+ (ash (i2c-dev:i2c-buffer-aref buf 1) 8)
+           (logand #xFF (i2c-dev:i2c-buffer-aref buf 0)))
         ; gyro
-        (+ (ash (cffi:mem-aref buf :int8 3) 8)
-           (logand #xFF (cffi:mem-aref buf :int8 2)))
-        (+ (ash (cffi:mem-aref buf :int8 5) 8)
-           (logand #xFF (cffi:mem-aref buf :int8 4)))
-        (+ (ash (cffi:mem-aref buf :int8 7) 8)
-           (logand #xFF (cffi:mem-aref buf :int8 6)))
+        (+ (ash (i2c-dev:i2c-buffer-aref buf 3) 8)
+           (logand #xFF (i2c-dev:i2c-buffer-aref buf 2)))
+        (+ (ash (i2c-dev:i2c-buffer-aref buf 5) 8)
+           (logand #xFF (i2c-dev:i2c-buffer-aref buf 4)))
+        (+ (ash (i2c-dev:i2c-buffer-aref buf 7) 8)
+           (logand #xFF (i2c-dev:i2c-buffer-aref buf 6)))
         ; accel
-        (+ (ash (cffi:mem-aref buf :int8 9) 8)
-           (logand #xFF (cffi:mem-aref buf :int8 8)))
-        (+ (ash (cffi:mem-aref buf :int8 11) 8)
-           (logand #xFF (cffi:mem-aref buf :int8 10)))
-        (+ (ash (cffi:mem-aref buf :int8 13) 8)
-           (logand #xFF (cffi:mem-aref buf :int8 12)))))
+        (+ (ash (i2c-dev:i2c-buffer-aref buf 9) 8)
+           (logand #xFF (i2c-dev:i2c-buffer-aref buf 8)))
+        (+ (ash (i2c-dev:i2c-buffer-aref buf 11) 8)
+           (logand #xFF (i2c-dev:i2c-buffer-aref buf 10)))
+        (+ (ash (i2c-dev:i2c-buffer-aref buf 13) 8)
+           (logand #xFF (i2c-dev:i2c-buffer-aref buf 12)))))
+
+(defun read-temp-gyro-accel ()
+    (setf (i2c-dev:i2c-buffer-aref *wbuf* 0) #x20)
+    (i2c-dev:i2c-read-register LSM6DS3TR_DEVADDR
+                               *wbuf*
+                               1
+                               *temp-gyro-accel*
+                               14)
+    (parse-temp-gyro-accel *temp-gyro-accel*))
 
 ;
 ; Magnetometer
 ;
 (defun wake-magnet ()
     ; CTRL_REG1 (20h)
-    (setf (cffi:mem-aref *wbuf* :uint8 0) #x20)
-    (setf (cffi:mem-aref *wbuf* :uint8 1) #x30)
-    (i2c-write *dev* LIS3MDL_SLAVE_ADDR *wbuf* 2)
-    ; CTRL_REG3 (22h)
-    (setf (cffi:mem-aref *wbuf* :uint8 0) #x22)
-    (setf (cffi:mem-aref *wbuf* :uint8 1) #x00)
-    (i2c-write *dev* LIS3MDL_SLAVE_ADDR *wbuf* 2)
-    ; CRTL_REG4 (23h)
-    (setf (cffi:mem-aref *wbuf* :uint8 0) #x23)
-    (setf (cffi:mem-aref *wbuf* :uint8 1) #x04)
-    (i2c-write *dev* LIS3MDL_SLAVE_ADDR *wbuf* 2))
-
-(defun read-magnet ()
-    (setf (cffi:mem-aref *wbuf* :uint8 0) #x28)
-    (i2c-read-register *dev*
-                       LIS3MDL_SLAVE_ADDR
+    (setf (i2c-dev:i2c-buffer-aref *wbuf* 0) #x20)
+    (setf (i2c-dev:i2c-buffer-aref *wbuf* 1) #x30)
+    (i2c-dev:i2c-write LIS3MDL_DEVADDR
                        *wbuf*
-                       1
-                       *magnet*
-                       6))
+                       2)
+    ; CTRL_REG3 (22h)
+    (setf (i2c-dev:i2c-buffer-aref *wbuf* 0) #x22)
+    (setf (i2c-dev:i2c-buffer-aref *wbuf* 1) #x00)
+    (i2c-dev:i2c-write LIS3MDL_DEVADDR
+                       *wbuf*
+                       2)
+    ; CRTL_REG4 (23h)
+    (setf (i2c-dev:i2c-buffer-aref *wbuf* 0) #x23)
+    (setf (i2c-dev:i2c-buffer-aref *wbuf* 1) #x04)
+    (i2c-dev:i2c-write LIS3MDL_DEVADDR
+                       *wbuf*
+                       2))
 
 (defun parse-magnet (buf)
     (values
-        (+ (ash (cffi:mem-aref buf :int8 1) 8)
-           (logand #xFF (cffi:mem-aref buf :int8 0)))
-        (+ (ash (cffi:mem-aref buf :int8 3) 8)
-           (logand #xFF (cffi:mem-aref buf :int8 2)))
-        (+ (ash (cffi:mem-aref buf :int8 5) 8)
-           (logand #xFF (cffi:mem-aref buf :int8 4)))))
+        (+ (ash (i2c-dev:i2c-buffer-aref buf 1) 8)
+           (logand #xFF (i2c-dev:i2c-buffer-aref buf 0)))
+        (+ (ash (i2c-dev:i2c-buffer-aref buf 3) 8)
+           (logand #xFF (i2c-dev:i2c-buffer-aref buf 2)))
+        (+ (ash (i2c-dev:i2c-buffer-aref buf 5) 8)
+           (logand #xFF (i2c-dev:i2c-buffer-aref buf 4)))))
 
-
-;
-; MAIN
-;
-
-(wake-gyro-accel)
-(wake-magnet)
-(loop
-    (read-temp-gyro-accel)
-    (read-magnet)
-    (multiple-value-bind
-        (temp gx gy gz ax ay az)
-        (parse-temp-gyro-accel *temp-gyro-accel*)
-        (format t "~d (~d, ~d, ~d) (~d, ~d, ~d)~%"
-            temp gx gy gz ax ay az))
-    (multiple-value-bind
-        (mx my mz)
-        (parse-magnet *magnet*)
-        (format t "(~d, ~d, ~d)~%"
-            mx my mz))
-    (sleep 0.125))
+(defun read-magnet ()
+    (setf (i2c-dev:i2c-buffer-aref *wbuf* 0) #x28)
+    (i2c-dev:i2c-read-register LIS3MDL_DEVADDR
+                               *wbuf*
+                               1
+                               *magnet*
+                               6)
+    (parse-magnet *magnet*))
 
