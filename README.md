@@ -5,14 +5,39 @@ Here some simple examples of Common Lisp code for comunicating with some sensors
 
 ## Getting Started
 
+### Prerequisites
+
 Install `sbcl` or some other Common Lisp implementaions (multi-threading support is needed).
+
+### Build i2c_lib.c
+
 Install `gcc` and build C libraries:
 
 ```
 $ make
 ```
 
-Run some of LISP code.
+### Install i2c-dev
+
+Make `~/common-lisp/` and put `i2c-dev/` into the directory.
+
+```
+$ mkdir ~/common-lisp
+$ cp -r ./i2c-dev ~/common-lisp/
+```
+
+Check whether you can load the installed package.
+
+```
+$ sbcl
+* (asdf:load-system "i2c-dev")
+```
+
+If some error occured at `asdf:load-system` then please check error messages and solve problems.
+
+### Run Common Lisp code
+
+Run some of Common Lisp code.
 
 ```
 $ sbcl --load amg8833.lisp
