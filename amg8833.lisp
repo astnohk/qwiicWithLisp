@@ -9,7 +9,6 @@
         *temperature*))
 (in-package :i2c-amg8833)
 
-(require :cffi)
 (require :i2c-dev)
 
 ;

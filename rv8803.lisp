@@ -13,7 +13,6 @@
         :read-flags))
 (in-package :I2C-RV8803)
 
-(require :cffi)
 (require :local-time)
 (require :i2c-dev)
 
