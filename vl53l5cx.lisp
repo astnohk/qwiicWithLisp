@@ -1,48 +1,63 @@
-(require :cffi)
-(require :bordeaux-threads)
+(defpackage :i2c-vl53l5cx
+    (:use :cl)
+    (:export
+        :RESOLUTION_4X4
+        :RESOLUTION_8X8
 
-(defconstant VL53L5CX_RESOLUTION_4X4 16)
-(defconstant VL53L5CX_RESOLUTION_8X8 64)
+        :NB_TARGET_PER_ZONE
+        :TARGET_ORDER_CLOSEST
+        :TARGET_ORDER_STRONGEST
+        :RANGING_MODE_CONTINUOUS
+        :RANGING_MODE_AUTONOMOUS
+        :POWER_MODE_SLEEP
+        :POWER_MODE_WAKEUP
 
-;;;;;;;;;;;;;;;;
-; CONFIG
-;;;;;;;;;;;;;;;;
-(defconstant TOF_FREQUENCY 10)
-(defconstant TOF_RESOLUTION VL53L5CX_RESOLUTION_4X4)
-(defconstant TOF_HISTORY_LENGTH 5)
-(defconstant MAX_DISTANCE 4000)
-;;;;;;;;;;;;;;;;
+        :create-dev
+        :create-results-buffer
+        :init-device
+        :set-integration-time-ms
+        :set-ranging-frequency-hz
+        :set-ranging-mode
+        :set-resolution
+        :set-target-order
+        :is-alive
+        :check-data-ready
+        :start-ranging
+        :stop-ranging
+        :get-ranging-data
+        :extract-distance-mm
+        :extract-range-sigma-mm))
+(in-package :i2c-vl53l5cx)
 
-(defun log10 (x) (/ (log x) (log 10)))
-(defun sum (x) (reduce #'+ x))
-(defun mean (x) (if (> (length x) 0) (/ (sum x) (length x)) 0))
+(require :i2c-dev)
 
-(defmacro shift-circular (place)
-    `(let ((tmp (loop for i from 0 below (- (length ,place) 1) collect (nth i ,place))))
-        (setf ,place (cons (car (last ,place)) tmp))))
-(defmacro assign-array (dest val)
-    `(loop for i from 0 below (array-dimension ,dest 0) do
-        (setf (aref ,dest i) (aref ,val i))))
+(defconstant DEVADDR #x29)
+(defconstant RESOLUTION_4X4 16)
+(defconstant RESOLUTION_8X8 64)
 
+(defparameter *is_alive_buffer*
+              (cffi:foreign-alloc :int8))
+(defparameter *is_ready_buffer*
+              (cffi:foreign-alloc :int8))
 
 ;
 ; VL53L5CX Driver
 ;
 (cffi:load-foreign-library "./vl53l5cx_driver.so")
 
-(defconstant VL53L5CX_NB_TARGET_PER_ZONE 2)
+(defconstant NB_TARGET_PER_ZONE 2)
 
-(defconstant VL53L5CX_TARGET_ORDER_CLOSEST 1)
-(defconstant VL53L5CX_TARGET_ORDER_STRONGEST 2)
-(defconstant VL53L5CX_RANGING_MODE_CONTINUOUS 1)
-(defconstant VL53L5CX_RANGING_MODE_AUTONOMOUS 3)
-(defconstant VL53L5CX_POWER_MODE_SLEEP 0)
-(defconstant VL53L5CX_POWER_MODE_WAKEUP 1)
+(defconstant TARGET_ORDER_CLOSEST 1)
+(defconstant TARGET_ORDER_STRONGEST 2)
+(defconstant RANGING_MODE_CONTINUOUS 1)
+(defconstant RANGING_MODE_AUTONOMOUS 3)
+(defconstant POWER_MODE_SLEEP 0)
+(defconstant POWER_MODE_WAKEUP 1)
 
-(defconstant VL53L5CX_NVM_DATA_SIZE 492)
-(defconstant VL53L5CX_CONFIGURATION_SIZE 972)
-(defconstant VL53L5CX_OFFSET_BUFFER_SIZE 488)
-(defconstant VL53L5CX_XTALK_BUFFER_SIZE 776)
+(defconstant NVM_DATA_SIZE 492)
+(defconstant CONFIGURATION_SIZE 972)
+(defconstant OFFSET_BUFFER_SIZE 488)
+(defconstant XTALK_BUFFER_SIZE 776)
 
 (cffi:defcstruct vl53l5cx_platform
     (address :uint16))
@@ -130,81 +145,64 @@
 
 
 ;
-; Parameters
+; Sensor Functions
 ;
-(defparameter *results_data* (cffi:foreign-alloc '(:struct vl53l5cx_results_data)))
-(defparameter *distance_mm* (make-array (list TOF_RESOLUTION) :initial-element (list 0)))
-(defparameter *range_sigma_mm* (make-array (list TOF_RESOLUTION) :initial-element (list 0)))
-(defparameter *distance_hist*
-    (loop for i from 0 to TOF_HISTORY_LENGTH collect
-        (make-array (list TOF_RESOLUTION) :initial-element (list 0))))
-(defparameter *range_sigma_mm_hist*
-    (loop for i from 0 to TOF_HISTORY_LENGTH collect
-        (make-array (list TOF_RESOLUTION) :initial-element (list 0))))
-
-
-;
-; Sensor Thread
-;
-(defun extract_distance_mm (dest results)
-    (let ((c_distance_mm (cffi:foreign-slot-pointer results '(:struct vl53l5cx_results_data) 'distance_mm)))
-        (loop for ind from 0 below TOF_RESOLUTION do
-            (setf (aref dest ind)
-                (loop for tar from 0 below VL53L5CX_NB_TARGET_PER_ZONE collect
-                    (cffi:mem-aref c_distance_mm :int16 (+ (* VL53L5CX_NB_TARGET_PER_ZONE ind) tar)))))))
-
-(defun extract_range_sigma_mm (dest results)
-    (let ((c_range_sigma_mm (cffi:foreign-slot-pointer results '(:struct vl53l5cx_results_data) 'range_sigma_mm)))
-        (loop for ind from 0 below TOF_RESOLUTION do
-            (setf (aref dest ind)
-                (loop for tar from 0 below VL53L5CX_NB_TARGET_PER_ZONE collect
-                    (cffi:mem-aref c_range_sigma_mm :int16 (+ (* VL53L5CX_NB_TARGET_PER_ZONE ind) tar)))))))
-
-(defun detect (dev)
-    (vl53l5cx_get_ranging_data dev *results_data*)
-    (extract_distance_mm *distance_mm* *results_data*)
-    (format t "~a~%" *distance_mm*)
-    (shift-circular *distance_hist*)
-    (assign-array (nth 0 *distance_hist*) *distance_mm*)
-    (extract_range_sigma_mm *range_sigma_mm* *results_data*)
-    (shift-circular *range_sigma_mm_hist*)
-    (assign-array (nth 0 *range_sigma_mm_hist*) *range_sigma_mm*))
-
-(defun main-loop (dev)
-    (let ((is_ready (cffi:foreign-alloc :int8)))
-        (loop
-            (vl53l5cx_check_data_ready dev is_ready)
-            (format t "is_ready: ~d~%" (cffi:mem-ref is_ready :uint8))
-            (if (> (cffi:mem-ref is_ready :uint8) 0)
-                (detect dev))
-            (sleep 0.025))))
-
-(defun init ()
+(defun create-dev ()
     (let ((dev (cffi:foreign-alloc '(:struct vl53l5cx_configuration))))
-        (setf (cffi:foreign-slot-value
-            (cffi:foreign-slot-pointer dev '(:struct vl53l5cx_configuration) 'platform)
-            '(:struct vl53l5cx_platform) 'address)
-            #x29)
-        ; Check sensor is alive
-        (let ((is_alive (cffi:foreign-alloc :int8)))
-            (vl53l5cx_is_alive dev is_alive)
-            (format t "is_alive: ~d~%" (cffi:mem-ref is_alive :int8)))
-        ; Initialize
-        (format t "init: ~d~%"
-            (vl53l5cx_init dev))
-        (format t "set_resolution: ~d~%"
-            (vl53l5cx_set_resolution dev TOF_RESOLUTION))
-        (format t "set_ranging_mode: ~d~%"
-            (vl53l5cx_set_ranging_mode dev VL53L5CX_RANGING_MODE_AUTONOMOUS))
-        (format t "set_ranging_frequency_hz: ~d~%"
-            (vl53l5cx_set_ranging_frequency_hz dev TOF_FREQUENCY))
-        (format t "set_integration_time_ms: ~d~%"
-            (vl53l5cx_set_integration_time_ms dev 70))
-        (format t "set_target_order: ~d~%"
-            (vl53l5cx_set_target_order dev VL53L5CX_TARGET_ORDER_STRONGEST))
-        ; Start ranging
-        (format t "start_ranging: ~d~%"
-            (vl53l5cx_start_ranging dev))
-        (main-loop dev)))
+        (setf (cffi:foreign-slot-value (cffi:foreign-slot-pointer dev '(:struct vl53l5cx_configuration) 'platform)
+                                       '(:struct vl53l5cx_platform) 'address)
+                                       DEVADDR)
+        dev))
 
-(init)
+(defun create-results-buffer ()
+    (cffi:foreign-alloc '(:struct vl53l5cx_results_data)))
+
+(defun init-device (dev)
+    (vl53l5cx_init dev))
+
+(defun set-integration-time-ms (dev integration-time-ms)
+    (vl53l5cx_set_integration_time_ms dev integration-time-ms))
+
+(defun set-ranging-frequency-hz (dev frequency-hz)
+    (vl53l5cx_set_ranging_frequency_hz dev frequency-hz))
+
+(defun set-ranging-mode (dev ranging-mode)
+    (vl53l5cx_set_ranging_mode dev ranging-mode))
+
+(defun set-resolution (dev resolution)
+    (vl53l5cx_set_resolution dev resolution))
+
+(defun set-target-order (dev target-order)
+    (vl53l5cx_set_target_order dev target-order))
+
+(defun is-alive (dev)
+    (vl53l5cx_is_alive dev *is_alive_buffer*)
+    (cffi:mem-ref *is_alive_buffer* :int8))
+
+(defun check-data-ready (dev)
+    (vl53l5cx_check_data_ready dev *is_ready_buffer*)
+    (cffi:mem-ref *is_ready_buffer* :int8))
+
+(defun start-ranging (dev)
+    (vl53l5cx_start_ranging dev))
+
+(defun stop-ranging (dev)
+    (vl53l5cx_stop_ranging dev))
+
+(defun get-ranging-data (dev results_buffer)
+    (vl53l5cx_get_ranging_data dev results_buffer))
+
+(defun extract-distance-mm (dest results resolution)
+    (let ((c_distance_mm (cffi:foreign-slot-pointer results '(:struct vl53l5cx_results_data) 'distance_mm)))
+        (loop for ind from 0 below resolution do
+            (setf (aref dest ind)
+                (loop for tar from 0 below NB_TARGET_PER_ZONE collect
+                    (cffi:mem-aref c_distance_mm :int16 (+ (* NB_TARGET_PER_ZONE ind) tar)))))))
+
+(defun extract-range-sigma-mm (dest results resolution)
+    (let ((c_range_sigma_mm (cffi:foreign-slot-pointer results '(:struct vl53l5cx_results_data) 'range_sigma_mm)))
+        (loop for ind from 0 below resolution do
+            (setf (aref dest ind)
+                (loop for tar from 0 below NB_TARGET_PER_ZONE collect
+                    (cffi:mem-aref c_range_sigma_mm :int16 (+ (* NB_TARGET_PER_ZONE ind) tar)))))))
+
