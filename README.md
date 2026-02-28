@@ -9,14 +9,6 @@ Here some simple examples of Common Lisp code for comunicating with some sensors
 
 Install `sbcl` or some other Common Lisp implementaions (multi-threading support is needed).
 
-### Build i2c_lib.c
-
-Install `gcc` and build C libraries:
-
-```
-$ make
-```
-
 ### Install i2c-dev
 
 Make `~/common-lisp/` and put `i2c-dev/` into the directory.
@@ -128,6 +120,120 @@ It has OLED with resolution of 64x48.
 [VL53L5CX](https://www.sparkfun.com/products/18642) is 4x4 dToF (direct Time of Flight) sensor array upto 8x8.
 It emit laser pulses from VCSEL and receive signals on SPAD array.
 It could detect distances to targets upto 4000mm.
+
+
+## Old info
+
+### `i2c_lib.c`
+
+`i2c_lib.c` is very simple wrapper of i2c-dev for Common Lisp.
+It provide easy way to import combined features of ioctl and i2c-dev.
+If you want CFFI without CFFI-Grovel it's hard to import ioctl's functions.
+`i2c_lib.c` is only need to define some arguments with valid types.
+
+#### Build `i2c_lib.c`
+
+Install `gcc` and build it.
+
+```
+$ make
+```
+
+#### Import `i2c_lib.c` in Common Lisp
+
+Put a built shared object `i2c_lib.so` in your project and load with CFFI.
+
+```
+(require :cffi)
+
+(cffi:load-foreign-library "./i2c_lib.so")
+```
+
+Define functions by `cffi:defcfun`.
+
+```
+(cffi:defcfun ("i2c_write" i2c-write) :uint8
+              (dev (:pointer :char))
+              (addr :uint8)
+              (buf :pointer)
+              (buf_len :size))
+
+(cffi:defcfun ("i2c_read" i2c-read) :uint8
+              (dev (:pointer :char))
+              (addr :uint8)
+              (read_buf :pointer)
+              (read_buf_len :size))
+
+(cffi:defcfun ("i2c_read_register" i2c-read-register) :uint8
+              (dev (:pointer :char))
+              (addr :uint8)
+              (write_buf :pointer)
+              (write_buf_len :size)
+              (read_buf :pointer)
+              (read_buf_len :size))
+```
+
+Allocate C char* constant of path string.
+In almost all environment the main I2C port is assigned to "/dev/i2c-1".
+
+```
+(defparameter *dev* (cffi:foreign-string-alloc "/dev/i2c-1"))
+```
+
+Allocate buffer for send/receive data from I2C.
+The data type is `:uint8`.
+
+```
+(defparameter *rbuffer*
+    (cffi:foreign-alloc :uint8
+                        :initial-contents '(0 0)))
+
+(defparameter *wbuffer*
+    (cffi:foreign-alloc :uint8
+                        :initial-contents '(0 0)))
+```
+
+#### Use `i2c_lib.c` in Common Lisp
+
+If you want to write some data to device via I2C then you need assign some value to `*wbuffer*`.
+And just write it by `i2c-write`.
+Here is very simple example to write `0xFF` to device of address `0x40`.
+
+```
+(setf (cffi:mem-aref *wbuffer* :uint8 0) #xFF)
+(i2c-write *dev* #x40 *wbuffer* 1)
+```
+
+And this is the example of read two values from `0x40`.
+You should check boundary in practical use.
+You need to set count within the size of `*rbuffer*`.
+
+```
+(i2c-read *dev* #x40 *rbuffer* 2)
+(loop for i from 0 below 2 collect
+    (cffi:mem-aref *rbuffer* :uint8 i))
+```
+
+Also you may need to read some values from the specified register address.
+You can use `i2c-read-register` for such situations.
+At first you should set register address in `*wbuffer*` because `i2c-read-register` will write *wbuffer* at first then next read values and store them to `*rbuffer*`.
+
+```
+; Read from register at 0x10
+(setf (cffi:mem-aref *wbuffer* :uint8 0) #x10)
+
+; Read 2 values from 0x10 from the device with I2C address 0x40
+(i2c-read-register *dev*
+                   #x40
+                   *wbuffer*
+                   1
+                   *rbuffer*
+                   2)
+
+; Get values as Common Lisp list
+(loop for i from 0 below 2 collect
+    (cffi:mem-aref *rbuffer* :uint8 i))
+```
 
 
 ## LICENSE
