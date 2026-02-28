@@ -32,15 +32,29 @@ If some error occured at `asdf:load-system` then please check error messages and
 Run some of Common Lisp code.
 
 ```
-$ sbcl --load amg8833.lisp
-$ sbcl --load htu21d.lisp
-$ sbcl --load fs3000.lisp
-$ sbcl --load lsm6ds3tr.lisp
-$ sbcl --load vl53l5cx.lisp
-$ sbcl --load haptic.lisp
-$ sbcl --load mpr121.lisp
-$ sbcl --load rv8803.lisp
+$ sbcl --load amg8833-demo.lisp
+$ sbcl --load htu21d-demo.lisp
+$ sbcl --load fs3000-demo.lisp
+$ sbcl --load lsm6ds3tr-demo.lisp
+$ sbcl --load haptic-demo.lisp
+$ sbcl --load mpr121-demo.lisp
+$ sbcl --load rv8803-demo.lisp
 ```
+
+### VL53L5CX
+
+`vl53l5cx.lisp` needs official firmware as a driver so it needs building drivers before run Common Lisp scripts.
+
+```
+$ make vl53l5cx
+```
+
+Then you can run `vl53l5cx-demo.lisp`.
+
+```
+$ sbcl --load vl53l5cx-demo.lisp
+```
+
 
 ## Source Code
 
