@@ -1,5 +1,5 @@
-# qwiicWithLisp
-Use Qwiic / STEMMA QT modules with Common Lisp.
+# I2CWithLisp
+Use I2C (Qwiic / STEMMA QT) modules with Common Lisp.
 Here some simple examples of Common Lisp code for comunicating with some sensors via I2C.
 
 
